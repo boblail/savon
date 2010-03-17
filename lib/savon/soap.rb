@@ -64,6 +64,7 @@ module Savon
       @action, @input = operation[:action], operation[:input]
       @endpoint = endpoint.kind_of?(URI) ? endpoint : URI(endpoint)
       @builder = Builder::XmlMarkup.new
+      @builder.instruct!(:xml, :version=>"1.0", :encoding=>"UTF-8")
     end
 
     # Sets the WSSE options.
@@ -112,8 +113,9 @@ module Savon
     end
 
     # Convenience method for setting the "xmlns:wsdl" namespace.
-    def namespace=(namespace)
-      namespaces["xmlns:wsdl"] = namespace
+    def wsdl_namespace=(namespace)
+      #namespaces["xmlns:wsdl"] = namespace
+      @wsdl_namespace = namespace
     end
 
     # Sets the SOAP version.
@@ -127,14 +129,11 @@ module Savon
     end
 
     # Returns the SOAP envelope XML.
-    def to_xml
-      unless @xml_body
-        @xml_body = @builder.env :Envelope, all_namespaces do |xml|
-          xml.env(:Header) { xml << all_header } unless all_header.empty?
-          xml_body xml
-        end
+    def to_xml      
+      @xml_body ||= @builder.env :Envelope, all_namespaces do |xml|
+        xml.env(:Header) { xml << all_header } unless all_header.empty?
+        xml_body xml
       end
-      @xml_body
     end
 
   private
@@ -157,7 +156,8 @@ module Savon
     # Adds a SOAP XML body to a given +xml+ Object.
     def xml_body(xml)
       xml.env(:Body) do
-        xml.tag!(:wsdl, *input_array) do
+        xml.tag!(*input_array, "xmlns" => @wsdl_namespace) do
+#       xml.tag!(:wsdl, *input_array) do
           xml << (@body.to_soap_xml rescue @body.to_s)
         end
       end

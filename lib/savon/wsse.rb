@@ -91,14 +91,23 @@ module Savon
     # username and password were specified.
     def header
       return "" unless username && password
+      
+      # test: this is unnecessary if subsequent requests have new timestamps
+      created = Time.new.getutc
+      expires = 5.minutes.from(created)
+      secret = OpenSSL::Random.random_bytes(20).to_s.strip
 
       builder = Builder::XmlMarkup.new
-      builder.wsse :Security, "xmlns:wsse" => WSENamespace do |xml|
-        xml.wsse :UsernameToken, "xmlns:wsu" => WSUNamespace do
+      builder.wsse :Security, "env:mustUnderstand" => "1" do |xml|
+        xml.wsu :Timestamp, "wsu:Id" => "Timestamp-#{UUID.generate}" do
+          xml.wsu :Created,   timestamp(created)
+          xml.wsu :Expires,   timestamp(expires)
+        end
+        xml.wsse :UsernameToken, "wsu:Id" => "SecurityToken-#{UUID.generate}" do
           xml.wsse :Username, username
-          xml.wsse :Nonce, nonce
-          xml.wsu :Created, timestamp
-          xml.wsse :Password, password_node, :Type => password_type
+          xml.wsse :Password, password_node(secret, created), :Type => password_type
+          xml.wsu  :Created,  timestamp(created)
+          xml.wsse :Nonce,    nonce(secret)
         end
       end
     end
@@ -106,11 +115,14 @@ module Savon
   private
 
     # Returns the WSSE password. Encrypts the password for digest authentication.
-    def password_node
+    def password_node(nonce, created)
       return password unless digest?
-
-      token = nonce + timestamp + password
-      Base64.encode64(Digest::SHA1.hexdigest(token)).chomp!
+      token = nonce + timestamp(created) + password
+      Base64.encode64(Digest::SHA1.new.update(token).digest)
+    end
+    
+    def nonce(secret)
+      Base64.encode64(secret)
     end
 
     # Returns the URI for the "wsse:Password/@Type" attribute.
@@ -118,14 +130,18 @@ module Savon
       digest? ? PasswordDigestURI : PasswordTextURI
     end
 
+=begin
     # Returns a WSSE nonce.
     def nonce
-      @nonce ||= Digest::SHA1.hexdigest String.random + timestamp
+#     @nonce ||= Digest::SHA1.hexdigest String.random + timestamp
+      @nonce ||= Base64.encode64(OpenSSL::Random.random_bytes(20).to_s().strip())
     end
+=end
 
     # Returns a WSSE timestamp.
-    def timestamp
-      @timestamp ||= Time.now.strftime Savon::SOAP::DateTimeFormat
+    def timestamp(time)
+      # @timestamp ||= Time.now.getutc().strftime Savon::SOAP::DateTimeFormat
+      time.strftime Savon::SOAP::DateTimeFormat
     end
 
   end

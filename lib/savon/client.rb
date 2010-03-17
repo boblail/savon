@@ -32,8 +32,9 @@ module Savon
       soap_action = soap_action_from method.to_s
       super unless @wsdl.respond_to? soap_action
 
-      setup_objects @wsdl.operation_from(soap_action), &block
-      Response.new @request.soap(@soap)
+      soap = soap_object_from @wsdl.operation_from(soap_action), *args, &block
+      yield_objects soap, &block if block
+      Response.new @request.soap(soap)
     end
 
     # Sets whether to use Savon::WSDL by a given +method+ name and
@@ -52,18 +53,18 @@ module Savon
 
     # Expects a SOAP operation Hash and sets up Savon::SOAP and Savon::WSSE.
     # Yields them to a given +block+ in case one was given.
-    def setup_objects(operation, &block)
-      @soap, @wsse = SOAP.new(operation, soap_endpoint), WSSE.new
-      yield_objects &block if block
-      @soap.namespaces["xmlns:wsdl"] ||= @wsdl.namespace_uri if @wsdl.enabled?
-      @soap.wsse = @wsse
+    def soap_object_from(operation, *args, &block)
+      soap = SOAP.new(operation, soap_endpoint)
+      soap.wsdl_namespace = @wsdl.namespace_uri if @wsdl.enabled?
+      soap.wsse = WSSE.new
+      soap
     end
 
     # Yields Savon::SOAP and Savon::WSSE to a given +block+.
-    def yield_objects(&block)
+    def yield_objects(soap, &block)
       case block.arity
-        when 1 then yield @soap
-        when 2 then yield @soap, @wsse
+        when 1 then yield soap
+        when 2 then yield soap, soap.wsse
       end
     end
 

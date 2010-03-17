@@ -54,6 +54,14 @@ module Savon
     def to_xml
       @http.body
     end
+    
+    def document
+      unless @document
+        require 'libxml'
+        @document = XML::Document.string to_xml
+      end
+      @document
+    end
 
     # Returns the HTTP response object.
     attr_reader :http
