@@ -58,7 +58,7 @@ module Savon
     def document
       unless @document
         require 'libxml'
-        @document = XML::Document.string to_xml
+        @document = LibXML::XML::Document.string to_xml
       end
       @document
     end
