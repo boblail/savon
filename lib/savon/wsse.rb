@@ -95,7 +95,7 @@ module Savon
       # test: this is unnecessary if subsequent requests have new timestamps
       created = Time.new.getutc
       expires = 5.minutes.from(created)
-      secret = OpenSSL::Random.random_bytes(20).to_s.strip
+      secret = OpenSSL::Random.random_bytes(20).toutf8.strip
 
       builder = Builder::XmlMarkup.new
       builder.wsse :Security, "env:mustUnderstand" => "1" do |xml|
@@ -122,7 +122,7 @@ module Savon
     end
     
     def nonce(secret)
-      Base64.encode64(secret)
+      Base64.encode64(secret).encode("utf-8")
     end
 
     # Returns the URI for the "wsse:Password/@Type" attribute.
@@ -141,7 +141,7 @@ module Savon
     # Returns a WSSE timestamp.
     def timestamp(time)
       # @timestamp ||= Time.now.getutc().strftime Savon::SOAP::DateTimeFormat
-      time.strftime Savon::SOAP::DateTimeFormat
+      time.strftime(Savon::SOAP::DateTimeFormat).encode("utf-8")
     end
 
   end
